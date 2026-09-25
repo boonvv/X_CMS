@@ -1,7 +1,478 @@
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-strawberry-graphql[fastapi]==0.256.1
-sqlalchemy==2.0.36
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.20
+import os
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Optional
+
+import strawberry
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
+from strawberry.fastapi import GraphQLRouter
+
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./x_cms.db")
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "./uploads"))
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+SECRET = os.getenv("JWT_SECRET", "change-this-secret-in-production")
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(bind=engine, autoflush=False)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    password: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    projects: Mapped[list["Project"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(180), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    color: Mapped[str] = mapped_column(String(24), default="#7857ff")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+
+    owner: Mapped[User] = relationship(back_populates="projects")
+    tasks: Mapped[list["Task"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    files: Mapped[list["ProjectFile"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False)
+
+    project: Mapped[Project] = relationship(back_populates="tasks")
+
+
+class ProjectFile(Base):
+    __tablename__ = "project_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    mime: Mapped[str] = mapped_column(String(200), default="application/octet-stream")
+    path: Mapped[str] = mapped_column(String(500), nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False)
+
+    project: Mapped[Project] = relationship(back_populates="files")
+
+
+Base.metadata.create_all(engine)
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def create_token(user_id: int) -> str:
+    payload = {"sub": str(user_id), "exp": datetime.utcnow() + timedelta(days=7)}
+    return jwt.encode(payload, SECRET, algorithm="HS256")
+
+
+def get_user_from_token(token_value: str) -> User:
+    if not token_value or not token_value.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    try:
+        claims = jwt.decode(token_value.split(" ", 1)[1], SECRET, algorithms=["HS256"])
+        user_id = int(claims["sub"])
+    except (JWTError, KeyError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    with SessionLocal() as db:
+        user = db.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
+
+
+def require_user(info) -> User:
+    authorization = info.context.get("authorization", "")
+    if not authorization:
+        raise Exception("Authentication required")
+    return get_user_from_token(authorization)
+
+
+@strawberry.type
+class TaskType:
+    id: int
+    title: str
+    completed: bool
+
+
+@strawberry.type
+class FileType:
+    id: int
+    name: str
+    mime: str
+
+
+@strawberry.type
+class ProjectType:
+    id: int
+    name: str
+    description: str
+    color: str
+    created_at: str
+    tasks: list[TaskType]
+    files: list[FileType]
+
+
+@strawberry.type
+class AuthPayload:
+    token: str
+    user_id: int
+    name: str
+    email: str
+
+
+@strawberry.type
+class StatsType:
+    projects: int
+    tasks: int
+    completed: int
+    files: int
+
+
+def project_to_type(project: Project, db) -> ProjectType:
+    tasks = db.query(Task).filter(Task.project_id == project.id).order_by(Task.id.asc()).all()
+    files = db.query(ProjectFile).filter(ProjectFile.project_id == project.id).order_by(ProjectFile.uploaded_at.desc()).all()
+    return ProjectType(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        color=project.color,
+        created_at=project.created_at.isoformat(),
+        tasks=[TaskType(id=t.id, title=t.title, completed=t.completed) for t in tasks],
+        files=[FileType(id=f.id, name=f.name, mime=f.mime) for f in files],
+    )
+
+
+@strawberry.type
+class Query:
+    @strawberry.field
+    def me(self, info) -> AuthPayload:
+        user = require_user(info)
+        return AuthPayload(token="", user_id=user.id, name=user.name, email=user.email)
+
+    @strawberry.field
+    def projects(self, info) -> list[ProjectType]:
+        user = require_user(info)
+        with SessionLocal() as db:
+            items = db.query(Project).filter(Project.owner_id == user.id).order_by(Project.created_at.desc()).all()
+            return [project_to_type(item, db) for item in items]
+
+    @strawberry.field
+    def project(self, info, project_id: int) -> ProjectType:
+        user = require_user(info)
+        with SessionLocal() as db:
+            project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+            if not project:
+                raise Exception("Project not found")
+            return project_to_type(project, db)
+
+    @strawberry.field
+    def stats(self, info) -> StatsType:
+        user = require_user(info)
+        with SessionLocal() as db:
+            projects = db.query(Project).filter(Project.owner_id == user.id).all()
+            project_ids = [p.id for p in projects]
+            tasks = db.query(Task).filter(Task.project_id.in_(project_ids)).all() if project_ids else []
+            files = db.query(ProjectFile).filter(ProjectFile.project_id.in_(project_ids)).count() if project_ids else 0
+            return StatsType(
+                projects=len(projects),
+                tasks=len(tasks),
+                completed=sum(1 for t in tasks if t.completed),
+                files=files,
+            )
+
+
+@strawberry.type
+class Mutation:
+    @strawberry.mutation
+    def signup(self, name: str, email: str, password: str) -> AuthPayload:
+        lowered = email.strip().lower()
+        with SessionLocal() as db:
+            existing = db.query(User).filter(User.email == lowered).first()
+            if existing:
+                raise Exception("Email already registered")
+            user = User(name=name.strip(), email=lowered, password=pwd_context.hash(password))
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            return AuthPayload(token=create_token(user.id), user_id=user.id, name=user.name, email=user.email)
+
+    @strawberry.mutation
+    def login(self, email: str, password: str) -> AuthPayload:
+        lowered = email.strip().lower()
+        with SessionLocal() as db:
+            user = db.query(User).filter(User.email == lowered).first()
+            if not user or not pwd_context.verify(password, user.password):
+                raise Exception("Invalid email or password")
+            return AuthPayload(token=create_token(user.id), user_id=user.id, name=user.name, email=user.email)
+
+    @strawberry.mutation
+    def create_project(self, info, name: str, description: str = "", color: str = "#7c5cff") -> ProjectType:
+        user = require_user(info)
+        with SessionLocal() as db:
+            project = Project(name=name.strip(), description=description or "", color=color, owner_id=user.id)
+            db.add(project)
+            db.commit()
+            db.refresh(project)
+            return project_to_type(project, db)
+
+    @strawberry.mutation
+    def update_project(self, info, project_id: int, name: str, description: str = "", color: str = "#7c5cff") -> ProjectType:
+        user = require_user(info)
+        with SessionLocal() as db:
+            project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+            if not project:
+                raise Exception("Project not found")
+            project.name = name.strip() or project.name
+            project.description = description
+            project.color = color or project.color
+            db.commit()
+            db.refresh(project)
+            return project_to_type(project, db)
+
+    @strawberry.mutation
+    def delete_project(self, info, project_id: int) -> bool:
+        user = require_user(info)
+        with SessionLocal() as db:
+            project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+            if not project:
+                raise Exception("Project not found")
+            db.delete(project)
+            db.commit()
+            return True
+
+    @strawberry.mutation
+    def create_task(self, info, project_id: int, title: str) -> TaskType:
+        user = require_user(info)
+        with SessionLocal() as db:
+            project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+            if not project:
+                raise Exception("Project not found")
+            task = Task(title=title.strip(), project_id=project.id)
+            db.add(task)
+            db.commit()
+            db.refresh(task)
+            return TaskType(id=task.id, title=task.title, completed=task.completed)
+
+    @strawberry.mutation
+    def update_task(self, info, task_id: int, title: str = "", completed: bool = False) -> TaskType:
+        user = require_user(info)
+        with SessionLocal() as db:
+            task = db.query(Task).join(Project).filter(Task.id == task_id, Project.owner_id == user.id).first()
+            if not task:
+                raise Exception("Task not found")
+            if title:
+                task.title = title.strip()
+            task.completed = completed
+            db.commit()
+            db.refresh(task)
+            return TaskType(id=task.id, title=task.title, completed=task.completed)
+
+    @strawberry.mutation
+    def delete_task(self, info, task_id: int) -> bool:
+        user = require_user(info)
+        with SessionLocal() as db:
+            task = db.query(Task).join(Project).filter(Task.id == task_id, Project.owner_id == user.id).first()
+            if not task:
+                raise Exception("Task not found")
+            db.delete(task)
+            db.commit()
+            return True
+
+
+schema = strawberry.Schema(query=Query, mutation=Mutation)
+app = FastAPI(title="X_CMS API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+def graphql_context_getter(request: Request):
+    return {"authorization": request.headers.get("authorization", "")}
+
+
+app.include_router(GraphQLRouter(schema, context_getter=graphql_context_getter), prefix="/graphql")
+
+
+@app.post("/projects/{project_id}/files")
+async def upload_file(project_id: int, file: UploadFile = File(...), authorization: Optional[str] = None):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    user = get_user_from_token(authorization)
+
+    with SessionLocal() as db:
+        project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        safe_name = Path(file.filename or "upload.bin").name
+        user_dir = UPLOAD_DIR / str(user.id) / str(project.id)
+        user_dir.mkdir(parents=True, exist_ok=True)
+
+        stored_path = user_dir / safe_name
+        content = await file.read()
+        stored_path.write_bytes(content)
+
+        project_file = ProjectFile(
+            name=safe_name,
+            mime=file.content_type or "application/octet-stream",
+            path=str(stored_path),
+            project_id=project.id,
+        )
+        db.add(project_file)
+        db.commit()
+        db.refresh(project_file)
+
+        return {"id": project_file.id, "name": project_file.name, "mime": project_file.mime}
+
+
+@app.get("/files/{file_id}")
+async def download_file(file_id: int, authorization: Optional[str] = None):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    user = get_user_from_token(authorization)
+
+    with SessionLocal() as db:
+        file_record = db.query(ProjectFile).join(Project).filter(ProjectFile.id == file_id, Project.owner_id == user.id).first()
+        if not file_record:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        path = Path(file_record.path)
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="File not found on disk")
+
+        return FileResponse(path=path, filename=file_record.name, media_type=file_record.mime)
+
+
+@app.get("/files/{file_id}/content")
+async def read_file_content(file_id: int, authorization: Optional[str] = None):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    user = get_user_from_token(authorization)
+
+    with SessionLocal() as db:
+        file_record = db.query(ProjectFile).join(Project).filter(ProjectFile.id == file_id, Project.owner_id == user.id).first()
+        if not file_record:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        path = Path(file_record.path)
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="File not available")
+
+        if file_record.mime.startswith("text/") or file_record.name.lower().endswith((".txt", ".py", ".md", ".json", ".js", ".ts")):
+            return {"content": path.read_text(encoding="utf-8", errors="replace"), "name": file_record.name}
+
+        return {"content": "", "name": file_record.name}
+
+
+@app.put("/files/{file_id}/content")
+async def update_file_content(file_id: int, payload: dict, authorization: Optional[str] = None):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    user = get_user_from_token(authorization)
+    new_content = payload.get("content", "")
+
+    with SessionLocal() as db:
+        file_record = db.query(ProjectFile).join(Project).filter(ProjectFile.id == file_id, Project.owner_id == user.id).first()
+        if not file_record:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        path = Path(file_record.path)
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="File not available")
+
+        path.write_text(new_content, encoding="utf-8")
+        return {"success": True, "name": file_record.name}
+
+
+@app.get("/api/projects")
+async def api_projects(authorization: Optional[str] = None):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    user = get_user_from_token(authorization)
+    with SessionLocal() as db:
+        projects = db.query(Project).filter(Project.owner_id == user.id).order_by(Project.created_at.desc()).all()
+        result = []
+        for project in projects:
+            tasks = db.query(Task).filter(Task.project_id == project.id).all()
+            files = db.query(ProjectFile).filter(ProjectFile.project_id == project.id).all()
+            result.append({
+                "id": project.id,
+                "name": project.name,
+                "description": project.description,
+                "color": project.color,
+                "created_at": project.created_at.isoformat(),
+                "tasks": [{"id": t.id, "title": t.title, "completed": t.completed} for t in tasks],
+                "files": [{"id": f.id, "name": f.name, "mime": f.mime} for f in files],
+            })
+        return result
+
+
+@app.get("/api/projects/{project_id}")
+async def api_project_detail(project_id: int, authorization: Optional[str] = None):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    user = get_user_from_token(authorization)
+
+    with SessionLocal() as db:
+        project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        tasks = db.query(Task).filter(Task.project_id == project.id).all()
+        files = db.query(ProjectFile).filter(ProjectFile.project_id == project.id).all()
+        return {
+            "id": project.id,
+            "name": project.name,
+            "description": project.description,
+            "color": project.color,
+            "created_at": project.created_at.isoformat(),
+            "tasks": [{"id": t.id, "title": t.title, "completed": t.completed} for t in tasks],
+            "files": [{"id": f.id, "name": f.name, "mime": f.mime} for f in files],
+        }
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+
+
+""" 
+A complete project is built from the models above. The application is intentionally optimized for a fast local setup and a clean dashboard-driven workflow.
+"""

@@ -1,1 +1,810 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');*{box-sizing:border-box}body{margin:0;background:#f7f7fb;color:#20202a;font:14px 'DM Sans',sans-serif}button,input,textarea{font:inherit}button{border:0;cursor:pointer}.shell{display:flex;min-height:100vh}aside{width:236px;background:#17171f;color:#aaa;padding:28px 16px;display:flex;flex-direction:column}.brand{color:#fff;font-size:18px;letter-spacing:-.5px;margin:0 12px 48px}.brand:first-letter{color:#9677ff}nav{display:grid;gap:7px}nav button,.logout{background:transparent;color:#999;display:flex;gap:12px;align-items:center;text-align:left;padding:12px;border-radius:8px}nav button.selected,nav button:hover,.logout:hover{color:#fff;background:#292832}.logout{margin-top:auto}.content{max-width:1240px;width:100%;padding:42px 5vw}header,.section-title,.detail-head{display:flex;justify-content:space-between;align-items:center;gap:20px}h1,h2,h3{font-family:'Space Grotesk';margin:7px 0}h1{font-size:29px}.eyebrow{font-size:11px;color:#8b849b;letter-spacing:1.4px}.muted{color:#8c8b99;line-height:1.55}.search{background:white;border:1px solid #e9e8ef;border-radius:8px;padding:10px 13px;display:flex;gap:8px;color:#9896a1}.search input{border:0;outline:0;width:180px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:38px 0}.stat{background:white;border:1px solid #ecebf2;border-radius:12px;padding:20px;display:flex;gap:14px;align-items:center}.stat-icon{background:#f0edff;color:#7254e8;padding:10px;border-radius:9px}.stat strong{display:block;font-size:25px;font-family:'Space Grotesk';margin-top:5px}.section-title{margin-bottom:17px}.primary{background:#7558e8;color:#fff;padding:12px 18px;border-radius:7px;font-weight:600}.compact{display:flex;gap:7px;padding:10px 14px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.project,.new-card,.panel{background:white;border:1px solid #ecebf2;border-radius:12px;padding:20px}.project{cursor:pointer}.project:hover{box-shadow:0 8px 25px #25204710}.project-top{display:flex;align-items:center;gap:8px}.project-top .muted{font-size:10px;letter-spacing:1px}.dot{width:9px;height:9px;border-radius:50%}.icon{margin-left:auto;background:transparent;color:#aaa}.progress{margin-top:25px}.progress div{display:flex;justify-content:space-between;font-size:12px;color:#777}.progress b{color:#333}.progress i{display:block;height:5px;background:#eee;border-radius:5px;margin-top:8px;overflow:hidden}.progress em{height:100%;display:block;border-radius:5px}.new-card{min-height:190px;display:flex;align-items:center;justify-content:center;gap:8px;color:#877aa7;border-style:dashed}.overlay{position:fixed;inset:0;background:#1c183966;display:grid;place-items:center;z-index:3}.modal{background:white;border-radius:14px;padding:26px;width:min(420px,90vw);display:grid;gap:14px}.modal input,.modal textarea,.add-task input{padding:12px;border:1px solid #e6e4ed;border-radius:7px;outline-color:#8064e8}.modal textarea{min-height:110px;resize:vertical}.actions{display:flex;justify-content:flex-end;gap:10px}.actions button:not(.primary),.back{background:#f1f0f5;padding:10px 14px;border-radius:7px}.detail{margin-top:25px}.back{color:#777;margin-bottom:25px}.detail-head{margin-bottom:30px}.upload{background:#7558e8;color:white;border-radius:7px;padding:11px 14px;display:flex;gap:7px;cursor:pointer}.upload input{display:none}.columns{display:grid;grid-template-columns:1fr 1fr;gap:18px}.panel h3{border-bottom:1px solid #eee;padding-bottom:15px}.panel h3 span{color:#999;font:12px 'DM Sans'}.add-task{display:flex;gap:8px;margin:15px 0}.add-task input{flex:1}.add-task button{background:#ece8ff;color:#765be5;border-radius:7px}.task,.file{display:flex;align-items:center;gap:10px;padding:12px 4px;border-bottom:1px solid #f2f1f5}.task svg{color:#c8c6d0}.task svg.done{color:#55b98a}.strike{text-decoration:line-through;color:#aaa}.file svg{color:#7861de}.file span{flex:1}.file small{display:block;color:#aaa;margin-top:3px}.file a,.file button{color:#7558e8;background:transparent}.editor textarea{font:13px monospace;min-height:300px}.auth{min-height:100vh;display:grid;place-items:center;background:#f5f3fa}.auth-card{background:white;width:min(390px,90vw);padding:38px;border-radius:16px;box-shadow:0 15px 40px #27204412}.auth-card .brand{color:#20202a;margin:0 0 38px 0}.auth-card form{display:grid;gap:12px;margin-top:28px}.auth-card input{padding:13px;border:1px solid #e5e3eb;border-radius:7px}.link{background:none;color:#7558e8;margin:17px auto;display:block}.error{color:#d45468}@media(max-width:800px){aside{width:65px;padding:22px 8px}.brand b,nav button:not(.selected)::after,nav button{font-size:0}.brand{margin-left:12px}.brand b{display:none}nav button svg{font-size:18px}.content{padding:25px 18px}.stats{grid-template-columns:repeat(2,1fr)}.grid,.columns{grid-template-columns:1fr}header{align-items:flex-start;flex-direction:column}.search{width:100%}.search input{width:100%}}
+import React, { useEffect, useMemo, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
+import {
+  CheckCircle2,
+  Download,
+  FileText,
+  FolderKanban,
+  Image as ImageIcon,
+  LayoutDashboard,
+  LogOut,
+  Plus,
+  Search,
+  Settings,
+  Trash2,
+  Upload,
+  UserCog,
+  Video,
+  Play,
+} from 'lucide-react';
+import './style.css';
+
+const API = 'http://localhost:8000';
+const GRAPHQL = `${API}/graphql`;
+
+async function graphQL(query: string, variables: Record<string, any> = {}) {
+  const token = localStorage.getItem('xcms_token');
+  const response = await fetch(GRAPHQL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  const payload = await response.json();
+  if (payload.errors) {
+    throw new Error(payload.errors[0]?.message || 'Request failed');
+  }
+
+  return payload.data;
+}
+
+async function rest<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem('xcms_token');
+  const response = await fetch(`${API}${url}`, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.detail || payload.message || 'Request failed');
+  }
+
+  return response.json() as Promise<T>;
+}
+
+function getFileType(fileName: string, mime: string): string {
+  const lower = fileName.toLowerCase();
+  if (mime.startsWith('image/')) return 'image';
+  if (mime.startsWith('video/')) return 'video';
+  if (lower.endsWith('.txt') || lower.endsWith('.py') || lower.endsWith('.md')) return 'text';
+  return 'file';
+}
+
+function AuthShell({ mode }: { mode: 'login' | 'signup' }) {
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const onSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const mutationName = mode === 'signup' ? 'signup' : 'login';
+      const variables = mode === 'signup'
+        ? { name: form.name, email: form.email, password: form.password }
+        : { email: form.email, password: form.password };
+
+      const query = mode === 'signup'
+        ? `mutation($name:String!, $email:String!, $password:String!){ signup(name:$name, email:$email, password:$password){ token userId name email } }`
+        : `mutation($email:String!, $password:String!){ login(email:$email, password:$password){ token userId name email } }`;
+
+      const data = await graphQL(query, variables);
+      const payload = data[mutationName];
+      localStorage.setItem('xcms_token', payload.token);
+      localStorage.setItem('xcms_user', JSON.stringify({ id: payload.userId, name: payload.name, email: payload.email }));
+      navigate('/');
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <main className="auth-page">
+      <div className="auth-card">
+        <div className="brand-line">
+          <span className="brand-mark">✦</span>
+          <span>X_CMS</span>
+        </div>
+
+        <h1>{mode === 'signup' ? 'Create your workspace' : 'Welcome back'}</h1>
+        <p className="muted">Organize projects, tasks, and content in one place.</p>
+
+        <form onSubmit={onSubmit} className="auth-form">
+          {mode === 'signup' && (
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Full name"
+              required
+            />
+          )}
+
+          <input
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            placeholder="Email address"
+            required
+          />
+
+          <input
+            type="password"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            placeholder="Password"
+            minLength={6}
+            required
+          />
+
+          {error && <div className="error-box">{error}</div>}
+
+          <button className="primary-button" disabled={isSubmitting}>
+            {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create account' : 'Login'}
+          </button>
+        </form>
+
+        <button className="text-button" onClick={() => navigate(mode === 'signup' ? '/login' : '/signup')}>
+          {mode === 'signup' ? 'Already have an account? Login' : 'New here? Create an account'}
+        </button>
+      </div>
+    </main>
+  );
+}
+
+function ProtectedRoute({ children }: { children: React.ReactElement }) {
+  const token = localStorage.getItem('xcms_token');
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
+function AppLayout({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const items = [
+    { label: 'Dashboard', to: '/', icon: <LayoutDashboard size={17} /> },
+    { label: 'Contents', to: '/contents', icon: <FileText size={17} /> },
+    { label: 'Admin', to: '/admin', icon: <UserCog size={17} /> },
+  ];
+
+  const logout = () => {
+    localStorage.removeItem('xcms_token');
+    localStorage.removeItem('xcms_user');
+    navigate('/login');
+  };
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand-line">
+          <span className="brand-mark">✦</span>
+          <span>X_CMS</span>
+        </div>
+
+        <nav className="sidebar-nav">
+          {items.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={location.pathname === item.to ? 'nav-item active' : 'nav-item'}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <button className="logout-button" onClick={logout}>
+          <LogOut size={16} />
+          <span>Log out</span>
+        </button>
+      </aside>
+
+      <main className="main-panel">{children}</main>
+    </div>
+  );
+}
+
+function StatCard({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
+  return (
+    <div className="stat-card">
+      <div className="stat-icon">{icon}</div>
+      <div>
+        <div className="stat-label">{label}</div>
+        <div className="stat-value">{value}</div>
+      </div>
+    </div>
+  );
+}
+
+function ProgressBar({ value, color }: { value: number; color: string }) {
+  return (
+    <div className="progress-track">
+      <div className="progress-fill" style={{ width: `${value}%`, background: color }} />
+    </div>
+  );
+}
+
+function ProjectCard({ project, onOpen }: { project: any; onOpen: () => void }) {
+  const done = project.tasks.filter((task: any) => task.completed).length;
+  const percent = project.tasks.length ? Math.round((done / project.tasks.length) * 100) : 0;
+
+  return (
+    <article className="project-card" onClick={onOpen}>
+      <div className="project-card-header">
+        <div className="project-color" style={{ background: project.color }} />
+        <span className="tiny-label">PROJECT</span>
+      </div>
+
+      <h3>{project.name}</h3>
+      <p className="muted small">{project.description || 'No description yet.'}</p>
+
+      <div className="mini-progress">
+        <div className="meta-row">
+          <span>{done}/{project.tasks.length} tasks</span>
+          <b>{percent}%</b>
+        </div>
+        <ProgressBar value={percent} color={project.color} />
+      </div>
+    </article>
+  );
+}
+
+function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [color, setColor] = useState('#7c5cff');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async () => {
+    if (!name.trim()) {
+      setError('Project name is required');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const mutation = `mutation($name:String!, $description:String!, $color:String!){ createProject(name:$name, description:$description, color:$color){ id } }`;
+      await graphQL(mutation, { name, description, color });
+      onCreated();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Unable to create project');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <h2>New project</h2>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Project name" />
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Project description" />
+        <div className="color-picker-row">
+          <label>Accent color</label>
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+        </div>
+        {error && <div className="error-box">{error}</div>}
+        <div className="modal-actions">
+          <button className="ghost-button" onClick={onClose}>Cancel</button>
+          <button className="primary-button" onClick={save} disabled={saving}>
+            {saving ? 'Creating...' : 'Create project'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardPage() {
+  const navigate = useNavigate();
+  const [projects, setProjects] = useState<any[]>([]);
+  const [stats, setStats] = useState({ projects: 0, tasks: 0, completed: 0, files: 0 });
+  const [search, setSearch] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+
+  const load = async () => {
+    try {
+      const query = `query{ projects{ id name description color createdAt tasks{ id title completed } files{ id name mime } } stats{ projects tasks completed files } }`;
+      const data = await graphQL(query);
+      setProjects(data.projects || []);
+      setStats(data.stats || { projects: 0, tasks: 0, completed: 0, files: 0 });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const filtered = useMemo(
+    () => projects.filter((project) => project.name.toLowerCase().includes(search.toLowerCase())),
+    [projects, search],
+  );
+
+  return (
+    <>
+      <header className="page-header">
+        <div>
+          <div className="eyebrow">WORKSPACE / OVERVIEW</div>
+          <h1>Dashboard</h1>
+        </div>
+
+        <div className="search-box">
+          <Search size={16} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search projects..." />
+        </div>
+      </header>
+
+      <div className="stats-grid">
+        <StatCard label="Projects" value={stats.projects} icon={<FolderKanban size={18} />} />
+        <StatCard label="Tasks" value={stats.tasks} icon={<CheckCircle2 size={18} />} />
+        <StatCard label="Completed" value={stats.completed} icon={<CheckCircle2 size={18} />} />
+        <StatCard label="Files" value={stats.files} icon={<FileText size={18} />} />
+      </div>
+
+      <div className="section-row">
+        <h2>Your projects</h2>
+        <button className="primary-button small" onClick={() => setShowCreate(true)}>
+          <Plus size={16} /> New project
+        </button>
+      </div>
+
+      <div className="project-grid">
+        {filtered.map((project) => (
+          <ProjectCard
+            key={project.id}
+            project={project}
+            onOpen={() => navigate(`/projects/${project.id}`)}
+          />
+        ))}
+
+        <button className="new-project-card" onClick={() => setShowCreate(true)}>
+          <Plus size={22} />
+          <span>Start a new project</span>
+        </button>
+      </div>
+
+      {showCreate && <NewProjectModal onClose={() => setShowCreate(false)} onCreated={load} />}
+    </>
+  );
+}
+
+function ProjectDetailPage() {
+  const { projectId } = useParams();
+  const navigate = useNavigate();
+  const [project, setProject] = useState<any>(null);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [editor, setEditor] = useState<{ id: number; name: string; content: string } | null>(null);
+
+  const load = async () => {
+    const query = `query($projectId:Int!){ project(projectId:$projectId){ id name description color createdAt tasks{ id title completed } files{ id name mime } } }`;
+    const data = await graphQL(query, { projectId: Number(projectId) });
+    setProject(data.project);
+  };
+
+  useEffect(() => {
+    load();
+  }, [projectId]);
+
+  const addTask = async () => {
+    if (!taskTitle.trim() || !project) return;
+    const mutation = `mutation($projectId:Int!, $title:String!){ createTask(projectId:$projectId, title:$title){ id title completed } }`;
+    await graphQL(mutation, { projectId: Number(projectId), title: taskTitle });
+    setTaskTitle('');
+    load();
+  };
+
+  const toggleTask = async (taskId: number) => {
+    const mutation = `mutation($taskId:Int!){ updateTask(taskId:$taskId, completed:true){ id completed } }`;
+    await graphQL(mutation, { taskId });
+    load();
+  };
+
+  const deleteTask = async (taskId: number) => {
+    const mutation = `mutation($taskId:Int!){ deleteTask(taskId:$taskId) }`;
+    await graphQL(mutation, { taskId });
+    load();
+  };
+
+  const uploadFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !projectId) return;
+
+    const form = new FormData();
+    form.append('file', file);
+
+    await fetch(`${API}/projects/${projectId}/files`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('xcms_token') || ''}`,
+      },
+      body: form,
+    });
+
+    event.target.value = '';
+    load();
+  };
+
+  const openEditor = async (file: any) => {
+    const isText = getFileType(file.name, file.mime) === 'text';
+    if (!isText) return;
+
+    const response = await fetch(`${API}/files/${file.id}/content`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('xcms_token') || ''}` },
+    });
+    const payload = await response.json();
+    setEditor({ id: file.id, name: file.name, content: payload.content || '' });
+  };
+
+  const saveEditor = async () => {
+    if (!editor) return;
+    await fetch(`${API}/files/${editor.id}/content`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('xcms_token') || ''}`,
+      },
+      body: JSON.stringify({ content: editor.content }),
+    });
+    setEditor(null);
+    load();
+  };
+
+  if (!project) {
+    return <div className="page-card">Loading project...</div>;
+  }
+
+  const completeCount = project.tasks.filter((task: any) => task.completed).length;
+
+  return (
+    <>
+      <div className="topbar-row">
+        <button className="ghost-button" onClick={() => navigate('/')}>
+          ← Back to dashboard
+        </button>
+        <label className="upload-button">
+          <Upload size={16} /> Upload file
+          <input type="file" onChange={uploadFile} />
+        </label>
+      </div>
+
+      <header className="project-header">
+        <div>
+          <div className="eyebrow">PROJECT / DETAILS</div>
+          <h1>{project.name}</h1>
+        </div>
+      </header>
+
+      <div className="project-summary">
+        <div className="summary-card">
+          <h3>Progress</h3>
+          <div className="metric-row">
+            <strong>{completeCount}/{project.tasks.length}</strong>
+            <span>tasks complete</span>
+          </div>
+          <ProgressBar value={project.tasks.length ? (completeCount / project.tasks.length) * 100 : 0} color={project.color} />
+        </div>
+
+        <div className="summary-card">
+          <h3>Description</h3>
+          <p>{project.description || 'No description provided yet.'}</p>
+        </div>
+      </div>
+
+      <div className="split-columns">
+        <div className="panel-box">
+          <div className="panel-header">
+            <h3>Tasks</h3>
+            <span>{project.tasks.length}</span>
+          </div>
+
+          <div className="task-input-row">
+            <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Add a task..." />
+            <button className="primary-button small" onClick={addTask}>Add</button>
+          </div>
+
+          <div className="task-list">
+            {project.tasks.length === 0 ? (
+              <div className="empty-state">No tasks yet.</div>
+            ) : (
+              project.tasks.map((task: any) => (
+                <div key={task.id} className="task-item">
+                  <button className={task.completed ? 'checkbox checked' : 'checkbox'} onClick={() => toggleTask(task.id)}>
+                    <CheckCircle2 size={16} />
+                  </button>
+                  <span className={task.completed ? 'task-text done' : 'task-text'}>{task.title}</span>
+                  <button className="icon-button" onClick={() => deleteTask(task.id)}>
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="panel-box">
+          <div className="panel-header">
+            <h3>Project files</h3>
+            <span>{project.files.length}</span>
+          </div>
+
+          <div className="file-list">
+            {project.files.length === 0 ? (
+              <div className="empty-state">No files uploaded yet.</div>
+            ) : (
+              project.files.map((file: any) => {
+                const type = getFileType(file.name, file.mime);
+                return (
+                  <div className="file-item" key={file.id}>
+                    <div className="file-meta">
+                      {type === 'image' && <ImageIcon size={18} />}
+                      {type === 'video' && <Video size={18} />}
+                      {type === 'text' && <FileText size={18} />}
+                      {type === 'file' && <FileText size={18} />}
+                      <span>{file.name}</span>
+                    </div>
+
+                    <div className="file-actions">
+                      {type === 'text' && (
+                        <button className="ghost-button small" onClick={() => openEditor(file)}>Edit</button>
+                      )}
+                      <a href={`${API}/files/${file.id}?authorization=${encodeURIComponent(`Bearer ${localStorage.getItem('xcms_token') || ''}`)}`} className="download-link" target="_blank" rel="noreferrer">
+                        <Download size={15} />
+                      </a>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+
+      {project.files.some((file: any) => getFileType(file.name, file.mime) === 'image' || getFileType(file.name, file.mime) === 'video') && (
+        <div className="media-panel">
+          <h3>Media preview</h3>
+          <div className="media-grid">
+            {project.files
+              .filter((file: any) => getFileType(file.name, file.mime) === 'image' || getFileType(file.name, file.mime) === 'video')
+              .map((file: any) => {
+                const type = getFileType(file.name, file.mime);
+                const src = `${API}/files/${file.id}?authorization=${encodeURIComponent(`Bearer ${localStorage.getItem('xcms_token') || ''}`)}`;
+                return (
+                  <div className="media-card" key={file.id}>
+                    {type === 'image' ? <img src={src} alt={file.name} /> : <video src={src} controls />}
+                    <div>{file.name}</div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {editor && (
+        <div className="modal-backdrop" onClick={() => setEditor(null)}>
+          <div className="editor-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="editor-header">
+              <h3>{editor.name}</h3>
+              <button className="ghost-button" onClick={() => setEditor(null)}>Close</button>
+            </div>
+            <textarea value={editor.content} onChange={(e) => setEditor({ ...editor, content: e.target.value })} />
+            <div className="modal-actions">
+              <button className="ghost-button" onClick={() => setEditor(null)}>Cancel</button>
+              <button className="primary-button" onClick={saveEditor}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ContentsPage() {
+  const [projects, setProjects] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await graphQL(`query{ projects{ id name files{ id name mime } } }`);
+        setProjects(data.projects || []);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    load();
+  }, []);
+
+  const flattened = useMemo(
+    () =>
+      projects.flatMap((project) =>
+        project.files.map((file: any) => ({ ...file, projectName: project.name })),
+      ),
+    [projects],
+  );
+
+  const filtered = flattened.filter((file) => file.name.toLowerCase().includes(search.toLowerCase()) || file.projectName.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <>
+      <header className="page-header">
+        <div>
+          <div className="eyebrow">LIBRARY / CONTENTS</div>
+          <h1>Content manager</h1>
+        </div>
+
+        <div className="search-box">
+          <Search size={16} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search files..." />
+        </div>
+      </header>
+
+      <div className="content-grid">
+        {filtered.map((file) => {
+          const type = getFileType(file.name, file.mime);
+          const src = `${API}/files/${file.id}?authorization=${encodeURIComponent(`Bearer ${localStorage.getItem('xcms_token') || ''}`)}`;
+
+          return (
+            <div className="content-card" key={file.id}>
+              <div className="content-card-header">
+                {type === 'image' && <ImageIcon size={18} />}
+                {type === 'video' && <Video size={18} />}
+                {type === 'text' && <FileText size={18} />}
+                {type === 'file' && <FileText size={18} />}
+                <span>{file.projectName}</span>
+              </div>
+
+              <div className="content-name">{file.name}</div>
+
+              {type === 'image' && <img src={src} alt={file.name} />}
+              {type === 'video' && <video src={src} controls />}
+              {type === 'text' && <div className="content-placeholder">Text source</div>}
+
+              <div className="content-actions">
+                <a href={src} target="_blank" rel="noreferrer" className="download-link">
+                  <Download size={15} /> Download
+                </a>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function AdminPage() {
+  const [stats, setStats] = useState({ projects: 0, tasks: 0, completed: 0, files: 0 });
+
+  useEffect(() => {
+    const load = async () => {
+      const query = `query{ stats{ projects tasks completed files } }`;
+      const data = await graphQL(query);
+      setStats(data.stats);
+    };
+
+    load();
+  }, []);
+
+  const user = JSON.parse(localStorage.getItem('xcms_user') || '{}');
+
+  return (
+    <>
+      <header className="page-header">
+        <div>
+          <div className="eyebrow">ADMIN / CONTROL</div>
+          <h1>Workspace settings</h1>
+        </div>
+      </header>
+
+      <div className="admin-grid">
+        <div className="panel-box">
+          <h3>Account</h3>
+          <div className="info-stack">
+            <div><strong>Name</strong><span>{user.name || 'User'}</span></div>
+            <div><strong>Email</strong><span>{user.email || '—'}</span></div>
+            <div><strong>Role</strong><span>Admin</span></div>
+          </div>
+        </div>
+
+        <div className="panel-box">
+          <h3>System overview</h3>
+          <div className="info-stack compact">
+            <div><strong>Projects</strong><span>{stats.projects}</span></div>
+            <div><strong>Tasks</strong><span>{stats.tasks}</span></div>
+            <div><strong>Completed</strong><span>{stats.completed}</span></div>
+            <div><strong>Files</strong><span>{stats.files}</span></div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function App() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!localStorage.getItem('xcms_token') && location.pathname !== '/login' && location.pathname !== '/signup') {
+      window.location.href = '/login';
+    }
+  }, [location.pathname]);
+
+  return (
+    <Routes>
+      <Route path="/login" element={<AuthShell mode="login" />} />
+      <Route path="/signup" element={<AuthShell mode="signup" />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <DashboardPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <ProjectDetailPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/contents"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <ContentsPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <AdminPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>,
+);
